@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Browser</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .dataset-url-container {
+            margin-bottom: 20px;
+        }
+        .sidebar {
+            width: 20%;
+            border-right: 1px solid #ccc;
+            padding-right: 20px;
+            overflow-y: auto;
+            height: 70vh;
+        }
+        .main-content {
+            width: 75%;
+            flex-grow: 1;
+        }
+        .data-field {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+        }
+        .data-label {
+            font-weight: bold;
+            color: #005580;
+            margin-bottom: 10px;
+            display: block;
+            font-size: 1.2em;
+        }
+        #dataset-url {
+            width: 100%;
+        }
+        .navigation {
+            margin: 10px 0;
+        }
+        #prompt, #canonical-solution, #test, #entry-point {
+            background-color: #e6f7ff;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #canonical-solution {
+            background-color: #e6ffe6;
+        }
+        #test {
+            background-color: #fff5e6;
+        }
+        #entry-point {
+            background-color: #f5e6ff;
+        }
+        .active-task {
+            background-color: #d1eaff;
+        }
+        .content-container {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="dataset-url-container">
+        <label for="dataset-url">Dataset URL:</label>
+        <input type="text" id="dataset-url" value="https://raw.githubusercontent.com/openai/human-eval/master/data/HumanEval.jsonl.gz">
+        <button onclick="loadDataset()">Load Dataset</button>
+    </div>
+    <div class="content-container">
+        <div class="sidebar">
+            <ul id="task-list">
+                <!-- Task IDs will be populated here -->
+            </ul>
+        </div>
+        <div class="main-content">
+            <div class="navigation">
+                <button onclick="previousInstance()">Previous</button>
+                <button onclick="nextInstance()">Next</button>
+            </div>
+            <div class="data-field">
+                <span class="data-label">Task ID:</span>
+                <div id="task-id"></div>
+            </div>
+            <div class="data-field">
+                <span class="data-label">Prompt:</span>
+                <pre id="prompt"></pre>
+            </div>
+            <div class="data-field">
+                <span class="data-label">Canonical Solution:</span>
+                <pre id="canonical-solution"></pre>
+            </div>
+            <div class="data-field">
+                <span class="data-label">Test:</span>
+                <pre id="test"></pre>
+            </div>
+            <div class="data-field">
+                <span class="data-label">Entry Point:</span>
+                <div id="entry-point"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataset = [];
+        let currentIndex = 0;
+
+        async function loadDataset() {
+            const url = document.getElementById('dataset-url').value;
+
+            const response = await fetch(url);
+            const compressedData = await response.arrayBuffer();
+            const decompressedData = pako.inflate(new Uint8Array(compressedData), { to: 'string' });
+
+            dataset = decompressedData.split('\n').filter(line => line).map(line => JSON.parse(line));
+
+            populateTaskList();
+            displayInstance(dataset[currentIndex]);
+        }
+
+        function populateTaskList() {
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+            dataset.forEach((instance, index) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = instance.task_id;
+                listItem.style.cursor = 'pointer';
+                listItem.onclick = () => {
+                    currentIndex = index;
+                    displayInstance(instance);
+                    highlightActiveTask(index);
+                };
+                taskList.appendChild(listItem);
+            });
+        }
+
+        function highlightActiveTask(index) {
+            const taskListItems = document.querySelectorAll('#task-list li');
+            taskListItems.forEach((item, idx) => {
+                if (idx === index) {
+                    item.classList.add('active-task');
+                } else {
+                    item.classList.remove('active-task');
+                }
+            });
+        }
+
+        function displayInstance(instance) {
+            document.getElementById('task-id').textContent = instance.task_id;
+            document.getElementById('prompt').textContent = instance.prompt;
+            document.getElementById('canonical-solution').textContent = instance.canonical_solution;
+            document.getElementById('test').textContent = instance.test;
+            document.getElementById('entry-point').textContent = instance.entry_point;
+        }
+
+        function previousInstance() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                displayInstance(dataset[currentIndex]);
+                highlightActiveTask(currentIndex);
+            }
+        }
+
+        function nextInstance() {
+            if (currentIndex < dataset.length - 1) {
+                currentIndex++;
+                displayInstance(dataset[currentIndex]);
+                highlightActiveTask(currentIndex);
+            }
+        }
+    </script>
+</body>
+</html>
